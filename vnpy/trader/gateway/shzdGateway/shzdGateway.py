@@ -16,7 +16,8 @@ from copy import copy
 from datetime import datetime
 
 from vnpy.api.shzd import ShzdApi
-from vtGateway import *
+from vnpy.trader.vtGateway import *
+from vnpy.trader.vtFunction import getJsonPath
 
 
 # 以下为一些VT类型和SHZD类型的映射字典
@@ -34,13 +35,10 @@ directionMapReverse = {v: k for k, v in directionMap.items()}
 
 # 交易所类型映射
 exchangeMap = {}
-#exchangeMap[EXCHANGE_CFFEX] = 'CFFEX'
-#exchangeMap[EXCHANGE_SHFE] = 'SHFE'
-#exchangeMap[EXCHANGE_CZCE] = 'CZCE'
-#exchangeMap[EXCHANGE_DCE] = 'DCE'
 exchangeMap[EXCHANGE_HKEX] = 'HKEX'
 exchangeMap[EXCHANGE_CME] = 'CME'
 exchangeMap[EXCHANGE_ICE] = 'ICE'
+exchangeMap[EXCHANGE_LME] = 'LME'
 exchangeMapReverse = {v:k for k,v in exchangeMap.items()}
 
 # 产品类型映射
@@ -71,16 +69,14 @@ class ShzdGateway(VtGateway):
         
         self.qryEnabled = False         # 是否要启动循环查询
         
+        self.fileName = self.gatewayName + '_connect.json'
+        self.filePath = getJsonPath(self.fileName, __file__)             
+        
     #----------------------------------------------------------------------
     def connect(self):
         """连接"""
-        # 载入json文件
-        fileName = self.gatewayName + '_connect.json'
-        path = os.path.abspath(os.path.dirname(__file__))
-        fileName = os.path.join(path, fileName)
-        
         try:
-            f = file(fileName)
+            f = file(self.filePath)
         except IOError:
             log = VtLogData()
             log.gatewayName = self.gatewayName
@@ -283,7 +279,10 @@ class ShzdGatewayApi(ShzdApi):
         tick.vtSymbol = '.'.join([tick.symbol, tick.exchange])
     
         tick.volume = int(data['513'])
-        tick.openInterest = int(data['514'])
+        
+        # LME行情没有持仓量数据
+        if data['306'] != 'LME':
+            tick.openInterest = int(data['514'])
         
         dt = data['512'].split(' ')
         tick.time = dt[1]

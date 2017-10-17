@@ -7,19 +7,17 @@
 import os
 import traceback
 import json
-
-
-globalSetting = {}      # 全局配置字典
+from vtFunction import getJsonPath
 
 
 settingFileName = "VT_setting.json"
-path = os.path.abspath(os.path.dirname(__file__)) 
-settingFileName = os.path.join(path, settingFileName)
+settingFilePath = getJsonPath(settingFileName, __file__)
+
+globalSetting = {}      # 全局配置字典
 
 try:
-    f = file(settingFileName)
+    f = file(settingFilePath)
     globalSetting = json.load(f)
 except:
-    print u'加载'
     traceback.print_exc()
     

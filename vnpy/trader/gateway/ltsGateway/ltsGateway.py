@@ -8,7 +8,8 @@ import os
 import json
 
 from vnpy.api.lts import MdApi, QryApi, TdApi, defineDict
-from vtGateway import *
+from vnpy.trader.vtFunction import getTempPath, getJsonPath
+from vnpy.trader.vtGateway import *
 
 
 # 以下为一些VT类型和LTS类型的映射字典
@@ -67,17 +68,16 @@ class LtsGateway(VtGateway):
         self.qryConnected = False
         
         self.qryEnabled = False         # 是否要启动循环查询
+        
+        self.fileName = self.gatewayName + '_connect.json'
+        self.filePath = getJsonPath(self.fileName, __file__)             
     
     #----------------------------------------------------------------------
     def connect(self):
         """连接"""
         # 载入json 文件
-        fileName = self.gatewayName + '_connect.json'
-        path = os.path.abspath(os.path.dirname(__file__))
-        fileName = os.path.join(path, fileName)
-        
         try:
-            f = file(fileName)
+            f = file(self.filePath)
         except IOError:
             log = VtLogData()
             log.gatewayName = self.gatewayName
@@ -372,9 +372,7 @@ class LtsMdApi(MdApi):
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
-            path = os.getcwd() + '/temp/' + self.gatewayName + '/'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            path = getTempPath(self.gatewayName + '_')
             self.createFtdcMdApi(path)
             
             # 注册服务器地址
@@ -726,9 +724,7 @@ class LtsTdApi(TdApi):
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
-            path = os.getcwd() + '/temp/' + self.gatewayName + '/'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            path = getTempPath(self.gatewayName + '_')
             self.createFtdcTraderApi(path)
             
             # 设置数据同步模式为推送从今日开始所有数据
@@ -1186,9 +1182,7 @@ class LtsQryApi(QryApi):
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
-            path = os.getcwd() + '/temp/' + self.gatewayName + '/'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            path = getTempPath(self.gatewayName + '_')
             self.createFtdcQueryApi(path)
             
             # 注册服务器地址

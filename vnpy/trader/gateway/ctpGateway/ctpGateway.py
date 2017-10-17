@@ -15,7 +15,9 @@ from datetime import datetime
 
 from vnpy.api.ctp import MdApi, TdApi, defineDict
 from vnpy.trader.vtGateway import *
-from language import text
+from vnpy.trader.vtFunction import getJsonPath, getTempPath
+from vnpy.trader.vtConstant import GATEWAYTYPE_FUTURES
+from .language import text
 
 
 # 以下为一些VT类型和CTP类型的映射字典
@@ -88,20 +90,16 @@ class CtpGateway(VtGateway):
         self.mdConnected = False        # 行情API连接状态，登录完成后为True
         self.tdConnected = False        # 交易API连接状态
         
-        self.qryEnabled = False         # 是否要启动循环查询
-
-        self.requireAuthentication = False
+        self.qryEnabled = False         # 循环查询
+        
+        self.fileName = self.gatewayName + '_connect.json'
+        self.filePath = getJsonPath(self.fileName, __file__)        
         
     #----------------------------------------------------------------------
     def connect(self):
         """连接"""
-        # 载入json文件
-        fileName = self.gatewayName + '_connect.json'
-        path = os.path.abspath(os.path.dirname(__file__))
-        fileName = os.path.join(path, fileName)
-        
         try:
-            f = file(fileName)
+            f = file(self.filePath)
         except IOError:
             log = VtLogData()
             log.gatewayName = self.gatewayName
@@ -329,10 +327,6 @@ class CtpMdApi(MdApi):
     #----------------------------------------------------------------------  
     def onRtnDepthMarketData(self, data):
         """行情推送"""
-        # 忽略成交量为0的无效tick数据
-        if not data['Volume']:
-            return
-        
         # 创建对象
         tick = VtTickData()
         tick.gatewayName = self.gatewayName
@@ -392,9 +386,7 @@ class CtpMdApi(MdApi):
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
-            path = os.getcwd() + '/temp/' + self.gatewayName + '/'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            path = getTempPath(self.gatewayName + '_')
             self.createFtdcMdApi(path)
             
             # 注册服务器地址
@@ -712,7 +704,7 @@ class CtpTdApi(TdApi):
         pos.positionProfit += data['PositionProfit']
         
         # 计算持仓均价
-        if pos.position:
+        if pos.position and pos.symbol in self.symbolSizeDict:
             size = self.symbolSizeDict[pos.symbol]
             pos.price = (cost + data['PositionCost']) / (pos.position * size)
         
@@ -1320,9 +1312,7 @@ class CtpTdApi(TdApi):
         # 如果尚未建立服务器连接，则进行连接
         if not self.connectionStatus:
             # 创建C++环境中的API对象，这里传入的参数是需要用来保存.con文件的文件夹路径
-            path = os.getcwd() + '/temp/' + self.gatewayName + '/'
-            if not os.path.exists(path):
-                os.makedirs(path)
+            path = getTempPath(self.gatewayName + '_')
             self.createFtdcTraderApi(path)
             
             # 设置数据同步模式为推送从今日开始所有数据
@@ -1458,29 +1448,3 @@ class CtpTdApi(TdApi):
         log.gatewayName = self.gatewayName
         log.logContent = content
         self.gateway.onLog(log)        
-
-
-#----------------------------------------------------------------------
-def test():
-    """测试"""
-    from PyQt4 import QtCore
-    import sys
-    
-    def print_log(event):
-        log = event.dict_['data']
-        print ':'.join([log.logTime, log.logContent])
-    
-    app = QtCore.QCoreApplication(sys.argv)    
-
-    eventEngine = EventEngine()
-    eventEngine.register(EVENT_LOG, print_log)
-    eventEngine.start()
-    
-    gateway = CtpGateway(eventEngine)
-    gateway.connect()
-    
-    sys.exit(app.exec_())
-
-
-if __name__ == '__main__':
-    test()

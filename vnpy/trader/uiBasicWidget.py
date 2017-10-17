@@ -3,40 +3,20 @@
 import json
 import csv
 import os
+import platform
 from collections import OrderedDict
 
-#from PyQt4 import QtGui, QtCore
-from qtpy import QtWidgets, QtGui, QtCore
-
 from vnpy.event import *
-from vnpy.trader.vtEvent import *
-from vtFunction import *
-from vtGateway import *
-import vtText
+from .vtEvent import *
+from .vtFunction import *
+from .vtGateway import *
+from . import vtText
+from .uiQt import QtGui, QtWidgets, QtCore, BASIC_FONT
+from .vtFunction import jsonPathDict
 
 
 COLOR_RED = QtGui.QColor('red')
 COLOR_GREEN = QtGui.QColor('green')
-
-
-#----------------------------------------------------------------------
-def loadFont():
-    """载入字体设置"""
-    fileName = 'VT_setting.json'
-    path = os.path.abspath(os.path.dirname(__file__)) 
-    fileName = os.path.join(path, fileName)  
-    
-    try:
-        f = file(fileName)
-        setting = json.load(f)
-        family = setting['fontFamily']
-        size = setting['fontSize']
-        font = QtGui.QFont(family, size)
-    except:
-        font = QtGui.QFont(u'微软雅黑', 12)
-    return font
-
-BASIC_FONT = loadFont()
 
 
 ########################################################################
@@ -158,7 +138,7 @@ class BidCell(QtWidgets.QTableWidgetItem):
 
 ########################################################################
 class AskCell(QtWidgets.QTableWidgetItem):
-    """买价单元格"""
+    """卖价单元格"""
 
     #----------------------------------------------------------------------
     def __init__(self, text=None, mainEngine=None):
@@ -237,6 +217,9 @@ class BasicMonitor(QtWidgets.QTableWidget):
         
         # 监控的事件类型
         self.eventType = ''
+        
+        # 列宽调整状态（只在第一次更新数据时调整一次列宽）
+        self.columnResized = False
         
         # 字体
         self.font = None
@@ -366,7 +349,9 @@ class BasicMonitor(QtWidgets.QTableWidget):
                 self.setItem(0, n, cell)                        
                 
         # 调整列宽
-        self.resizeColumns()
+        if not self.columnResized:
+            self.resizeColumns()
+            self.columnResized = True
         
         # 重新打开排序
         if self.sorting:
@@ -698,6 +683,7 @@ class TradingWidget(QtWidgets.QFrame):
                     EXCHANGE_ICE,
                     EXCHANGE_CME,
                     EXCHANGE_NYMEX,
+                    EXCHANGE_LME,
                     EXCHANGE_GLOBEX,
                     EXCHANGE_IDEALPRO]
     
@@ -724,7 +710,9 @@ class TradingWidget(QtWidgets.QFrame):
         self.symbol = ''
         
         # 添加交易接口
-        self.gatewayList.extend(mainEngine.getAllGatewayNames())
+        l = mainEngine.getAllGatewayDetails()
+        gatewayNameList = [d['gatewayName'] for d in l]
+        self.gatewayList.extend(gatewayNameList)
 
         self.initUi()
         self.connectSignal()
@@ -1240,5 +1228,94 @@ class ContractManager(QtWidgets.QWidget):
         content = str(self.lineFilter.text())
         self.monitor.setFilterContent(content)
         self.monitor.refresh()
+    
+    
+
+########################################################################
+class SettingEditor(QtWidgets.QWidget):
+    """配置编辑器"""
+
+    #----------------------------------------------------------------------
+    def __init__(self, mainEngine, parent=None):
+        """Constructor"""
+        super(SettingEditor, self).__init__(parent)
+        
+        self.mainEngine = mainEngine
+        self.currentFileName = ''
+        
+        self.initUi()
+    
+    #----------------------------------------------------------------------
+    def initUi(self):
+        """初始化界面"""
+        self.setWindowTitle(vtText.EDIT_SETTING)
+        
+        self.comboFileName = QtWidgets.QComboBox()
+        self.comboFileName.addItems(jsonPathDict.keys())
+        
+        buttonLoad = QtWidgets.QPushButton(vtText.LOAD)
+        buttonSave = QtWidgets.QPushButton(vtText.SAVE)
+        buttonLoad.clicked.connect(self.loadSetting)
+        buttonSave.clicked.connect(self.saveSetting)
+        
+        self.editSetting = QtWidgets.QTextEdit()
+        self.labelPath = QtWidgets.QLabel()
+        
+        hbox = QtWidgets.QHBoxLayout()
+        hbox.addWidget(self.comboFileName)
+        hbox.addWidget(buttonLoad)
+        hbox.addWidget(buttonSave)
+        hbox.addStretch()
+        
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addLayout(hbox)
+        vbox.addWidget(self.editSetting)
+        vbox.addWidget(self.labelPath)
+        
+        self.setLayout(vbox)
+        
+    #----------------------------------------------------------------------
+    def loadSetting(self):
+        """加载配置"""
+        self.currentFileName = str(self.comboFileName.currentText())
+        filePath = jsonPathDict[self.currentFileName]
+        self.labelPath.setText(filePath)
+        
+        with open(filePath) as f:
+            self.editSetting.clear()
+            
+            for line in f:
+                line = line.replace('\n', '')   # 移除换行符号
+                line = line.decode('UTF-8')
+                self.editSetting.append(line)
+    
+    #----------------------------------------------------------------------
+    def saveSetting(self):
+        """保存配置"""
+        if not self.currentFileName:
+            return
+        
+        filePath = jsonPathDict[self.currentFileName]
+        
+        with open(filePath, 'w') as f:
+            content = self.editSetting.toPlainText()
+            content = content.encode('UTF-8')
+            f.write(content)
+        
+    #----------------------------------------------------------------------
+    def show(self):
+        """显示"""
+        # 更新配置文件下拉框
+        self.comboFileName.clear()
+        self.comboFileName.addItems(jsonPathDict.keys())
+        
+        # 显示界面
+        super(SettingEditor, self).show()
+        
+        
+        
+        
+        
+    
     
     
