@@ -13,6 +13,7 @@ from .vtGateway import *
 from . import vtText
 from .uiQt import QtGui, QtWidgets, QtCore, BASIC_FONT
 from .vtFunction import jsonPathDict
+from .vtConstant import *
 
 
 COLOR_RED = QtGui.QColor('red')
@@ -405,9 +406,13 @@ class BasicMonitor(QtWidgets.QTableWidget):
         """初始化右键菜单"""
         self.menu = QtWidgets.QMenu(self)    
         
+        resizeAction = QtWidgets.QAction(vtText.RESIZE_COLUMNS, self)
+        resizeAction.triggered.connect(self.resizeColumns)        
+        
         saveAction = QtWidgets.QAction(vtText.SAVE_DATA, self)
         saveAction.triggered.connect(self.saveToCsv)
         
+        self.menu.addAction(resizeAction)
         self.menu.addAction(saveAction)
         
     #----------------------------------------------------------------------
@@ -453,8 +458,8 @@ class MarketMonitor(BasicMonitor):
         # 设置字体
         self.setFont(BASIC_FONT)
         
-        # 设置允许排序
-        self.setSorting(True)
+        # 设置排序
+        self.setSorting(False)
         
         # 初始化表格
         self.initTable()
@@ -696,7 +701,8 @@ class TradingWidget(QtWidgets.QFrame):
                         PRODUCT_EQUITY,
                         PRODUCT_FUTURES,
                         PRODUCT_OPTION,
-                        PRODUCT_FOREX]
+                        PRODUCT_FOREX,
+                        PRODUCT_SPOT]
     
     gatewayList = ['']
 
@@ -1025,6 +1031,7 @@ class TradingWidget(QtWidgets.QFrame):
     def sendOrder(self):
         """发单"""
         symbol = str(self.lineSymbol.text())
+        vtSymbol = symbol
         exchange = unicode(self.comboExchange.currentText())
         currency = unicode(self.comboCurrency.currentText())
         productClass = unicode(self.comboProductClass.currentText())           
@@ -1041,10 +1048,12 @@ class TradingWidget(QtWidgets.QFrame):
         if contract:
             gatewayName = contract.gatewayName
             exchange = contract.exchange    # 保证有交易所代码
+            vtSymbol = contract.vtSymbol
             
         req = VtOrderReq()
         req.symbol = symbol
         req.exchange = exchange
+        req.vtSymbol = vtSymbol
         req.price = self.spinPrice.value()
         req.volume = self.spinVolume.value()
         req.direction = unicode(self.comboDirection.currentText())
@@ -1111,9 +1120,11 @@ class ContractMonitor(BasicMonitor):
         d['productClass'] = {'chinese':vtText.PRODUCT_CLASS, 'cellType':BasicCell}
         d['size'] = {'chinese':vtText.CONTRACT_SIZE, 'cellType':BasicCell}
         d['priceTick'] = {'chinese':vtText.PRICE_TICK, 'cellType':BasicCell}
-        d['strikePrice'] = {'chinese':vtText.STRIKE_PRICE, 'cellType':BasicCell}
+        
         d['underlyingSymbol'] = {'chinese':vtText.UNDERLYING_SYMBOL, 'cellType':BasicCell}
-        d['optionType'] = {'chinese':vtText.OPTION_TYPE, 'cellType':BasicCell}     
+        d['optionType'] = {'chinese':vtText.OPTION_TYPE, 'cellType':BasicCell}  
+        d['expiryDate'] = {'chinese':vtText.EXPIRY_DATE, 'cellType':BasicCell}
+        d['strikePrice'] = {'chinese':vtText.STRIKE_PRICE, 'cellType':BasicCell}
         self.setHeaderDict(d)
         
         # 过滤显示用的字符串
@@ -1228,7 +1239,30 @@ class ContractManager(QtWidgets.QWidget):
         content = str(self.lineFilter.text())
         self.monitor.setFilterContent(content)
         self.monitor.refresh()
-    
+
+
+########################################################################
+class WorkingOrderMonitor(OrderMonitor):
+    """活动委托监控"""
+    STATUS_COMPLETED = [STATUS_ALLTRADED, STATUS_CANCELLED, STATUS_REJECTED]
+
+    #----------------------------------------------------------------------
+    def __init__(self, mainEngine, eventEngine, parent=None):
+        """Constructor"""
+        super(WorkingOrderMonitor, self).__init__(mainEngine, eventEngine, parent)
+        
+    #----------------------------------------------------------------------
+    def updateData(self, data):
+        """更新数据"""
+        super(WorkingOrderMonitor, self).updateData(data)
+
+        # 如果该委托已完成，则隐藏该行
+        if data.status in self.STATUS_COMPLETED:
+            vtOrderID = data.vtOrderID
+            cellDict = self.dataDict[vtOrderID]
+            cell = cellDict['status']
+            row = self.row(cell)
+            self.hideRow(row)    
     
 
 ########################################################################
@@ -1311,11 +1345,6 @@ class SettingEditor(QtWidgets.QWidget):
         
         # 显示界面
         super(SettingEditor, self).show()
-        
-        
-        
-        
-        
-    
+
     
     

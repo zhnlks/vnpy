@@ -49,6 +49,7 @@ class MainWindow(QtWidgets.QMainWindow):
         widgetErrorM, dockErrorM = self.createDock(ErrorMonitor, vtText.ERROR, QtCore.Qt.BottomDockWidgetArea)
         widgetTradeM, dockTradeM = self.createDock(TradeMonitor, vtText.TRADE, QtCore.Qt.BottomDockWidgetArea)
         widgetOrderM, dockOrderM = self.createDock(OrderMonitor, vtText.ORDER, QtCore.Qt.RightDockWidgetArea)
+        widgetWorkingOrderM, dockWorkingOrderM = self.createDock(WorkingOrderMonitor, vtText.WORKING_ORDER, QtCore.Qt.BottomDockWidgetArea)
         widgetPositionM, dockPositionM = self.createDock(PositionMonitor, vtText.POSITION, QtCore.Qt.BottomDockWidgetArea)
         widgetAccountM, dockAccountM = self.createDock(AccountMonitor, vtText.ACCOUNT, QtCore.Qt.BottomDockWidgetArea)
         widgetTradingW, dockTradingW = self.createDock(TradingWidget, vtText.TRADING, QtCore.Qt.LeftDockWidgetArea)
@@ -56,6 +57,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabifyDockWidget(dockTradeM, dockErrorM)
         self.tabifyDockWidget(dockTradeM, dockLogM)
         self.tabifyDockWidget(dockPositionM, dockAccountM)
+        self.tabifyDockWidget(dockPositionM, dockWorkingOrderM)
     
         dockTradeM.raise_()
         dockPositionM.raise_()
@@ -110,6 +112,10 @@ class MainWindow(QtWidgets.QMainWindow):
         appMenu = menubar.addMenu(vtText.APPLICATION)
         
         for appDetail in self.appDetailList:
+            # 如果没有应用界面，则不添加菜单按钮
+            if not appDetail['appWidget']:
+                continue
+            
             function = self.createOpenAppFunction(appDetail)
             action = self.createAction(appDetail['appDisplayName'], function, loadIconPath(appDetail['appIco']))
             appMenu.addAction(action)
@@ -191,7 +197,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 self.widgetDict[appName].show()
             except KeyError:
-                appEngine = self.mainEngine.appDict[appName]
+                appEngine = self.mainEngine.getApp(appName)
                 self.widgetDict[appName] = appDetail['appWidget'](appEngine, self.eventEngine)
                 self.widgetDict[appName].show()
                 

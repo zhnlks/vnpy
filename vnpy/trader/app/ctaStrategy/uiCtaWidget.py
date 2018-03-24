@@ -115,7 +115,7 @@ class CtaStrategyManager(QtWidgets.QGroupBox):
         self.setLayout(vbox)
         
     #----------------------------------------------------------------------
-    def updateMonitor(self, event=None):
+    def updateMonitor(self):
         """显示策略最新状态"""
         paramDict = self.ctaEngine.getStrategyParam(self.name)
         if paramDict:
@@ -124,11 +124,17 @@ class CtaStrategyManager(QtWidgets.QGroupBox):
         varDict = self.ctaEngine.getStrategyVar(self.name)
         if varDict:
             self.varMonitor.updateData(varDict)        
-            
+    
+    #----------------------------------------------------------------------
+    def updateVar(self, event):
+        """更新策略变量"""
+        data = event.dict_['data']
+        self.varMonitor.updateData(data)
+    
     #----------------------------------------------------------------------
     def registerEvent(self):
         """注册事件监听"""
-        self.signal.connect(self.updateMonitor)
+        self.signal.connect(self.updateVar)
         self.eventEngine.register(EVENT_CTA_STRATEGY+self.name, self.signal.emit)
     
     #----------------------------------------------------------------------
@@ -178,13 +184,11 @@ class CtaEngineManager(QtWidgets.QWidget):
         initAllButton = QtWidgets.QPushButton(text.INIT_ALL)
         startAllButton = QtWidgets.QPushButton(text.START_ALL)
         stopAllButton = QtWidgets.QPushButton(text.STOP_ALL)
-        savePositionButton = QtWidgets.QPushButton(text.SAVE_POSITION_DATA)
         
         loadButton.clicked.connect(self.load)
         initAllButton.clicked.connect(self.initAll)
         startAllButton.clicked.connect(self.startAll)
         stopAllButton.clicked.connect(self.stopAll)
-        savePositionButton.clicked.connect(self.ctaEngine.savePosition)
         
         # 滚动区域，放置所有的CtaStrategyManager
         self.scrollArea = QtWidgets.QScrollArea()
@@ -201,7 +205,6 @@ class CtaEngineManager(QtWidgets.QWidget):
         hbox2.addWidget(initAllButton)
         hbox2.addWidget(startAllButton)
         hbox2.addWidget(stopAllButton)
-        hbox2.addWidget(savePositionButton)
         hbox2.addStretch()
         
         vbox = QtWidgets.QVBoxLayout()
@@ -216,7 +219,8 @@ class CtaEngineManager(QtWidgets.QWidget):
         w = QtWidgets.QWidget()
         vbox = QtWidgets.QVBoxLayout()
         
-        for name in self.ctaEngine.strategyDict.keys():
+        l = self.ctaEngine.getStrategyNames()
+        for name in l:
             strategyManager = CtaStrategyManager(self.ctaEngine, self.eventEngine, name)
             vbox.addWidget(strategyManager)
         
@@ -261,21 +265,7 @@ class CtaEngineManager(QtWidgets.QWidget):
         """注册事件监听"""
         self.signal.connect(self.updateCtaLog)
         self.eventEngine.register(EVENT_CTA_LOG, self.signal.emit)
-        
-    #----------------------------------------------------------------------
-    def closeEvent(self, event):
-        """关闭窗口时的事件"""
-        if self.isVisible():
-            reply = QtWidgets.QMessageBox.question(self, text.SAVE_POSITION_DATA,
-                                               text.SAVE_POSITION_QUESTION, QtWidgets.QMessageBox.Yes | 
-                                               QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
-        
-            if reply == QtWidgets.QMessageBox.Yes: 
-                self.ctaEngine.savePosition()
-                
-        event.accept()
-        
-        
+
     
     
     
