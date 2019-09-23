@@ -1,31 +1,45 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-#Build ctp/lts/ib api
-pushd vnpy/api/ctp
-bash build.sh
-popd
+python=$1
+prefix=$2
+shift 2
 
-pushd vnpy/api/lts
-bash build.sh
-popd
+[[ -z $python ]] && python=python
+[[ -z $prefix ]] && prefix=/usr
 
-pushd vnpy/api/xtp
-bash build.sh
-popd
+$python -m pip install --upgrade pip setuptools wheel
 
-pushd vnpy/api/ib
-bash build.sh
-popd
+# Get and build ta-lib
+function install-ta-lib()
+{
+    pushd /tmp
+    wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+    tar -xf ta-lib-0.4.0-src.tar.gz
+    cd ta-lib
+    ./configure --prefix=$prefix
+    make -j
+    make install
+    popd
+}
+function ta-lib-exists()
+{
+    ta-lib-config --libs > /dev/null
+}
+ta-lib-exists || install-ta-lib
 
-#Install Python Modules
-pip install -r requirements.txt
+# old versions of ta-lib imports numpy in setup.py
+$python -m pip install numpy
 
-#Install Ta-Lib
-conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
-conda config --set show_channel_urls yes
-conda install -c quantopian ta-lib=0.4.9
-conda install -c conda-forge python-snappy 
+# Install extra packages
+$python -m pip install --pre --extra-index-url https://rquser:ricequant99@py.ricequant.com/simple/ rqdatac
+$python -m pip install ta-lib
+$python -m pip install https://vnpy-pip.oss-cn-shanghai.aliyuncs.com/colletion/ibapi-9.75.1-py3-none-any.whl
 
-#Install vn.py
-python setup.py install
+# Install Python Modules
+$python -m pip install -r requirements.txt
 
+# Install local Chinese language environment
+locale-gen zh_CN.GB18030
+
+# Install vn.py
+$python -m pip install . $@
